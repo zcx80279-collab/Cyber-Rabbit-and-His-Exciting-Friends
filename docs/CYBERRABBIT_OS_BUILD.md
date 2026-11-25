@@ -29,6 +29,10 @@ certificate fingerprints differ from the previously released application.
 5. Confirm Android installation upgrade, Windows NSIS update, Google login, Drive access, and signature continuity.
 6. Only then disable automatic triggers in the private repository. Do not delete its workflow files.
 
+Scheduled detection remains disabled until the repository variable
+`CYBERRABBIT_AUTOMATION_ENABLED` is explicitly set to `true` after both
+validation builds and migration releases succeed.
+
 The `update-feeds` branch contains only public update metadata. It must never
 contain source, logs, signing material, OAuth secrets, or user data.
 
