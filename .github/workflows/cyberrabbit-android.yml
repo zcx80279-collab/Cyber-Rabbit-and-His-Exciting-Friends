@@ -1,0 +1,186 @@
+name: CyberRabbit OS Android
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: Private source branch, tag, or commit SHA
+        required: true
+        default: main
+      version:
+        description: X.Y.Z or auto
+        required: true
+        default: auto
+      publish:
+        description: Publish release and update feed
+        required: true
+        type: boolean
+        default: false
+
+concurrency:
+  group: cyberrabbit-os-android-release
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    environment: cyberrabbit-os-release
+    steps:
+      - name: Check out public orchestration
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+
+      - name: Check out private CyberRabbit OS source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          repository: zcx80279-collab/Magic-Rabbit
+          ref: ${{ inputs.source_ref }}
+          ssh-key: ${{ secrets.CYBERRABBIT_SOURCE_SSH_KEY }}
+          persist-credentials: false
+          fetch-depth: 1
+          path: .source/cyberrabbit-os
+
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: .source/cyberrabbit-os/package-lock.json
+
+      - name: Set up Java 21
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Resolve monotonic version
+        id: version
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/resolve-version.mjs android '${{ inputs.version }}'
+
+      - name: Scan private source before build
+        run: bash scripts/security-scan.sh .source/cyberrabbit-os
+
+      - name: Install, test, and build web application
+        working-directory: .source/cyberrabbit-os
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run lint
+          npm test
+          npm run build
+
+      - name: Prepare Android project
+        working-directory: .source/cyberrabbit-os
+        env:
+          ANDROID_GOOGLE_WEB_CLIENT_ID: ${{ secrets.ANDROID_GOOGLE_WEB_CLIENT_ID }}
+        run: |
+          set -euo pipefail
+          test -n "$ANDROID_GOOGLE_WEB_CLIENT_ID"
+          if [ ! -d android ]; then npx cap add android; fi
+          npx cap sync android
+          node scripts/configure-android-manifest.mjs
+
+      - name: Restore and verify existing signing key
+        id: signing
+        working-directory: .source/cyberrabbit-os
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$ANDROID_KEYSTORE_BASE64"
+          test -n "$KEYSTORE_PASSWORD"
+          test -n "$KEY_ALIAS"
+          test -n "$KEY_PASSWORD"
+          node scripts/android-keystore-vault.mjs decode-base64 android/app/rabbit-release.jks
+          output=$(VERIFY_KS_PATH=android/app/rabbit-release.jks VERIFY_STORE_PASS="$KEYSTORE_PASSWORD" VERIFY_KEY_ALIAS="$KEY_ALIAS" VERIFY_KEY_PASS="$KEY_PASSWORD" java scripts/VerifyAndroidKeystore.java)
+          sha1=$(printf '%s\n' "$output" | awk -F= '/^SHA1=/{print $2}')
+          sha256=$(printf '%s\n' "$output" | awk -F= '/^SHA256=/{print $2}')
+          expected_sha1=$(jq -r '.androidSigning.sha1' ../../config/cyberrabbit-os.json)
+          expected_sha256=$(jq -r '.androidSigning.sha256' ../../config/cyberrabbit-os.json)
+          normalize() { printf '%s' "$1" | tr '[:lower:]' '[:upper:]' | tr -d '[:space:]:'; }
+          test "$(normalize "$sha1")" = "$(normalize "$expected_sha1")"
+          test "$(normalize "$sha256")" = "$(normalize "$expected_sha256")"
+          echo "sha1=$sha1" >> "$GITHUB_OUTPUT"
+          echo "sha256=$sha256" >> "$GITHUB_OUTPUT"
+
+      - name: Configure and build signed APK
+        working-directory: .source/cyberrabbit-os
+        env:
+          VERSION_NAME: ${{ steps.version.outputs.version }}
+          VERSION_CODE: ${{ steps.version.outputs.versionCode }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          cat >> android/app/build.gradle <<'GRADLE'
+          android {
+              defaultConfig {
+                  versionCode System.getenv('VERSION_CODE').toInteger()
+                  versionName System.getenv('VERSION_NAME')
+              }
+              signingConfigs {
+                  rabbitRelease {
+                      storeFile file('rabbit-release.jks')
+                      storePassword System.getenv('KEYSTORE_PASSWORD')
+                      keyAlias System.getenv('KEY_ALIAS')
+                      keyPassword System.getenv('KEY_PASSWORD')
+                  }
+              }
+              buildTypes { release { signingConfig signingConfigs.rabbitRelease } }
+          }
+          GRADLE
+          chmod +x android/gradlew
+          cd android
+          ./gradlew assembleRelease --no-daemon
+
+      - name: Verify APK and prepare public files
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          EXPECTED_SHA1: ${{ steps.signing.outputs.sha1 }}
+          EXPECTED_SHA256: ${{ steps.signing.outputs.sha256 }}
+        run: |
+          set -euo pipefail
+          apk=.source/cyberrabbit-os/android/app/build/outputs/apk/release/app-release.apk
+          bash scripts/verify-apk.sh "$apk" "$EXPECTED_SHA1" "$EXPECTED_SHA256"
+          mkdir -p release
+          output="release/CyberRabbitOS-Android-${VERSION}.apk"
+          cp "$apk" "$output"
+          sha256sum "$output" >"${output}.sha256"
+
+      - name: Publish immutable release and Android feed
+        if: ${{ inputs.publish }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+          VERSION_CODE: ${{ steps.version.outputs.versionCode }}
+          TAG: ${{ steps.version.outputs.tag }}
+          SOURCE_SHA: ${{ github.sha }}
+          SIGNING_SHA1: ${{ steps.signing.outputs.sha1 }}
+          SIGNING_SHA256: ${{ steps.signing.outputs.sha256 }}
+        run: |
+          set -euo pipefail
+          source_sha=$(git -C .source/cyberrabbit-os rev-parse HEAD)
+          apk="CyberRabbitOS-Android-${VERSION}.apk"
+          gh release view "$TAG" >/dev/null 2>&1 && { echo '::error::Release tag already exists.'; exit 1; } || true
+          gh release create "$TAG" "release/$apk" "release/$apk.sha256" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "CyberRabbit OS Android v${VERSION}" --notes "CyberRabbit OS Android\n\nSource commit: ${source_sha}\nVersion code: ${VERSION_CODE}\nSigning SHA-256: ${SIGNING_SHA256}"
+          sha256=$(awk '{print $1}' "release/$apk.sha256")
+          encoded_tag=$(node -p 'encodeURIComponent(process.argv[1])' "$TAG")
+          download="https://github.com/${GITHUB_REPOSITORY}/releases/download/${encoded_tag}/${apk}"
+          jq -n --arg version "$VERSION" --arg tag "$TAG" --arg url "$download" --arg name "$apk" --arg sha "$sha256" --arg source "$source_sha" --arg published "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '{version:$version,tag_name:$tag,name:("CyberRabbit OS Android v"+$version),body:"CyberRabbit OS Android",published_at:$published,source_sha:$source,assets:[{name:$name,browser_download_url:$url,sha256:$sha}]}' >release/android-feed.json
+          node scripts/publish-feed.mjs cyberrabbit-os/android/release.json release/android-feed.json "CyberRabbit OS Android ${VERSION} feed"
+
+      - name: Clean signing material
+        if: always()
+        run: |
+          find .source -type f \( -name '*.jks' -o -name '*.keystore' -o -name '*.p12' -o -name '*.pfx' \) -delete
+

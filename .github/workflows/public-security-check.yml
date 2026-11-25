@@ -1,0 +1,27 @@
+name: Public Security Check
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Reject forbidden files and secrets
+        run: bash scripts/security-scan.sh .
+      - name: Validate configuration and scripts
+        run: |
+          jq -e '.sourceRepository == "zcx80279-collab/Magic-Rabbit"' config/cyberrabbit-os.json >/dev/null
+          node --check scripts/resolve-version.mjs
+          node --check scripts/set-source-version.mjs
+          node --check scripts/publish-feed.mjs
+

@@ -1,0 +1,42 @@
+name: CyberRabbit OS Source Watch
+
+on:
+  schedule:
+    - cron: '23 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    environment: cyberrabbit-os-release
+    steps:
+      - name: Read private source head
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          repository: zcx80279-collab/Magic-Rabbit
+          ref: main
+          ssh-key: ${{ secrets.CYBERRABBIT_SOURCE_SSH_KEY }}
+          persist-credentials: false
+          fetch-depth: 1
+          path: .source/cyberrabbit-os
+
+      - name: Dispatch builds only for an unseen source commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          source_sha=$(git -C .source/cyberrabbit-os rev-parse HEAD)
+          releases=$(gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100")
+          android_seen=$(jq --arg sha "$source_sha" '[.[] | select((.tag_name | startswith("cyberrabbit-os/android/")) and (.body // "" | contains($sha)))] | length' <<<"$releases")
+          windows_seen=$(jq --arg sha "$source_sha" '[.[] | select((.tag_name | startswith("cyberrabbit-os/windows/")) and (.body // "" | contains($sha)))] | length' <<<"$releases")
+          if [ "$android_seen" -eq 0 ]; then
+            gh workflow run cyberrabbit-android.yml --repo "$GITHUB_REPOSITORY" -f source_ref="$source_sha" -f version=auto -f publish=true
+          fi
+          if [ "$windows_seen" -eq 0 ]; then
+            gh workflow run cyberrabbit-windows.yml --repo "$GITHUB_REPOSITORY" -f source_ref="$source_sha" -f version=auto -f publish=true
+          fi
+

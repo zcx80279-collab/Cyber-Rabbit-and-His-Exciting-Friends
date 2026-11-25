@@ -1,0 +1,122 @@
+name: CyberRabbit OS Windows
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: Private source branch, tag, or commit SHA
+        required: true
+        default: main
+      version:
+        description: X.Y.Z or auto
+        required: true
+        default: auto
+      publish:
+        description: Publish release and update feed
+        required: true
+        type: boolean
+        default: false
+
+concurrency:
+  group: cyberrabbit-os-windows-release
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    environment: cyberrabbit-os-release
+    steps:
+      - name: Check out public orchestration
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+
+      - name: Check out private CyberRabbit OS source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          repository: zcx80279-collab/Magic-Rabbit
+          ref: ${{ inputs.source_ref }}
+          ssh-key: ${{ secrets.CYBERRABBIT_SOURCE_SSH_KEY }}
+          persist-credentials: false
+          fetch-depth: 1
+          path: .source/cyberrabbit-os
+
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: .source/cyberrabbit-os/package-lock.json
+
+      - name: Resolve monotonic version
+        id: version
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/resolve-version.mjs windows '${{ inputs.version }}'
+
+      - name: Scan private source before build
+        shell: bash
+        run: bash scripts/security-scan.sh .source/cyberrabbit-os
+
+      - name: Set exact build version
+        run: node scripts/set-source-version.mjs .source/cyberrabbit-os '${{ steps.version.outputs.version }}'
+
+      - name: Install, test, and build installer
+        working-directory: .source/cyberrabbit-os
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+          GOOGLE_DESKTOP_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_DESKTOP_OAUTH_CLIENT_ID }}
+        run: |
+          if (-not $env:GOOGLE_DESKTOP_OAUTH_CLIENT_ID) { throw 'GOOGLE_DESKTOP_OAUTH_CLIENT_ID is missing' }
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run lint
+          npm test
+          npm run desktop:prepare
+          npx electron-builder --config electron-builder.yml --win --publish never
+
+      - name: Verify Windows artifacts
+        shell: bash
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          root=.source/cyberrabbit-os/release
+          exe="$root/CyberRabbitOS-Setup-${VERSION}.exe"
+          zip="$root/CyberRabbitOS-${VERSION}-x64.zip"
+          blockmap="${exe}.blockmap"
+          yml="$root/latest.yml"
+          for file in "$exe" "$zip" "$blockmap" "$yml"; do test -s "$file"; done
+          test "$(dd if="$exe" bs=2 count=1 2>/dev/null)" = MZ
+          if strings "$exe" | grep -Eq '(gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,}|-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----)'; then
+            echo '::error::High-confidence secret pattern embedded in EXE.'
+            exit 1
+          fi
+
+      - name: Publish immutable release and Windows feed
+        if: ${{ inputs.publish }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          set -euo pipefail
+          root=.source/cyberrabbit-os/release
+          exe="CyberRabbitOS-Setup-${VERSION}.exe"
+          zip="CyberRabbitOS-${VERSION}-x64.zip"
+          source_sha=$(git -C .source/cyberrabbit-os rev-parse HEAD)
+          gh release view "$TAG" >/dev/null 2>&1 && { echo '::error::Release tag already exists.'; exit 1; } || true
+          gh release create "$TAG" "$root/$exe" "$root/$exe.blockmap" "$root/$zip" "$root/latest.yml" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "CyberRabbit OS Windows v${VERSION}" --notes "CyberRabbit OS Windows\n\nSource commit: ${source_sha}"
+          encoded_tag=$(node -p 'encodeURIComponent(process.argv[1])' "$TAG")
+          base="https://github.com/${GITHUB_REPOSITORY}/releases/download/${encoded_tag}"
+          sed -e "s#url: ${exe}#url: ${base}/${exe}#" -e "s#path: ${exe}#path: ${base}/${exe}#" "$root/latest.yml" >"$root/public-latest.yml"
+          node scripts/publish-feed.mjs cyberrabbit-os/windows/latest.yml "$root/public-latest.yml" "CyberRabbit OS Windows ${VERSION} feed"
+          jq -n --arg version "$VERSION" --arg tag "$TAG" --arg url "${base}/${exe}" --arg api "" --arg name "$exe" --arg source "$source_sha" --arg published "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '{version:$version,tag_name:$tag,name:("CyberRabbit OS Windows v"+$version),body:"CyberRabbit OS Windows",published_at:$published,source_sha:$source,assets:[{name:$name,browser_download_url:$url,url:$api}]}' >"$root/windows-feed.json"
+          node scripts/publish-feed.mjs cyberrabbit-os/windows/release.json "$root/windows-feed.json" "CyberRabbit OS Windows ${VERSION} release feed"
+

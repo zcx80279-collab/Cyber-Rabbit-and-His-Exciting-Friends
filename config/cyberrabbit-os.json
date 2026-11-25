@@ -1,0 +1,21 @@
+{
+  "sourceRepository": "zcx80279-collab/Magic-Rabbit",
+  "androidAppId": "com.cyberrabbit.os",
+  "windowsAppId": "com.chacha.magicrabbit",
+  "minimumVersions": {
+    "android": "1.0.108",
+    "androidVersionCode": 1000108,
+    "windows": "1.0.95"
+  },
+  "androidSigning": {
+    "sha1": "8C:CC:2D:5B:DC:ED:18:D7:C2:30:00:07:35:E4:92:BC:E2:1B:2A:96",
+    "sha256": "13:C7:49:8F:F9:1F:8D:18:33:9B:B9:9F:14:DF:C3:BE:15:56:1B:A8:B1:35:CC:5D:93:77:C0:50:2B:79:FE:F7"
+  },
+  "tagPrefixes": {
+    "android": "cyberrabbit-os/android/v",
+    "windows": "cyberrabbit-os/windows/v"
+  },
+  "feedBranch": "update-feeds",
+  "feedRoot": "cyberrabbit-os"
+}
+

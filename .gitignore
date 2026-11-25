@@ -1,0 +1,15 @@
+.audit/
+.source/
+node_modules/
+release/
+*.log
+.env*
+!.env.example
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.pem
+*.key
+*.vault.enc
+
