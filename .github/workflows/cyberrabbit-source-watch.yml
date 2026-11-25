@@ -11,26 +11,28 @@ permissions:
 
 jobs:
   detect:
-    if: ${{ github.event_name == 'workflow_dispatch' || vars.CYBERRABBIT_AUTOMATION_ENABLED == 'true' }}
+    if: ${{ github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || vars.CYBERRABBIT_AUTOMATION_ENABLED == 'true') }}
     runs-on: ubuntu-latest
     environment: cyberrabbit-os-release
     steps:
-      - name: Read private source head
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - name: Generate Source Reader installation token
+        id: source_reader
+        uses: actions/create-github-app-token@v2
         with:
-          repository: zcx80279-collab/Magic-Rabbit
-          ref: main
-          ssh-key: ${{ secrets.CYBERRABBIT_SOURCE_SSH_KEY }}
-          persist-credentials: false
-          fetch-depth: 1
-          path: .source/cyberrabbit-os
+          app-id: ${{ vars.CYBERRABBIT_SOURCE_READER_APP_ID }}
+          private-key: ${{ secrets.CYBERRABBIT_SOURCE_READER_APP_PRIVATE_KEY }}
+          owner: zcx80279-collab
+          repositories: Magic-Rabbit
+          permission-contents: read
+          permission-metadata: read
 
       - name: Dispatch builds only for an unseen source commit
         env:
           GH_TOKEN: ${{ github.token }}
+          SOURCE_TOKEN: ${{ steps.source_reader.outputs.token }}
         run: |
           set -euo pipefail
-          source_sha=$(git -C .source/cyberrabbit-os rev-parse HEAD)
+          source_sha=$(GH_TOKEN="$SOURCE_TOKEN" gh api repos/zcx80279-collab/Magic-Rabbit/commits/main --jq .sha)
           releases=$(gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100")
           android_seen=$(jq --arg sha "$source_sha" '[.[] | select((.tag_name | startswith("cyberrabbit-os/android/")) and (.body // "" | contains($sha)))] | length' <<<"$releases")
           windows_seen=$(jq --arg sha "$source_sha" '[.[] | select((.tag_name | startswith("cyberrabbit-os/windows/")) and (.body // "" | contains($sha)))] | length' <<<"$releases")

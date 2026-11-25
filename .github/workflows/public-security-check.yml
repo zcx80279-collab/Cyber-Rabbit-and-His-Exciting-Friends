@@ -24,4 +24,6 @@ jobs:
           node --check scripts/resolve-version.mjs
           node --check scripts/set-source-version.mjs
           node --check scripts/publish-feed.mjs
+          grep -q 'CYBERRABBIT_SOURCE_READER_APP_ID' .github/workflows/cyberrabbit-android.yml
+          grep -q 'CYBERRABBIT_VAULT_PASSPHRASE' .github/workflows/cyberrabbit-windows.yml
 

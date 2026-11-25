@@ -3,74 +3,90 @@ name: CyberRabbit OS Windows
 on:
   workflow_dispatch:
     inputs:
-      source_ref:
-        description: Private source branch, tag, or commit SHA
-        required: true
-        default: main
-      version:
-        description: X.Y.Z or auto
-        required: true
-        default: auto
-      publish:
-        description: Publish release and update feed
-        required: true
-        type: boolean
-        default: false
+      source_ref: {description: Private source main or a full commit SHA contained in main, required: true, default: main}
+      version: {description: X.Y.Z or auto, required: true, default: auto}
+      publish: {description: Publish release and update feed, required: true, type: boolean, default: false}
 
-concurrency:
-  group: cyberrabbit-os-windows-release
-  cancel-in-progress: false
-
-permissions:
-  contents: write
+concurrency: {group: cyberrabbit-os-windows-release, cancel-in-progress: false}
+permissions: {contents: write}
 
 jobs:
   build:
+    if: github.ref == 'refs/heads/main'
     runs-on: windows-latest
     timeout-minutes: 60
     environment: cyberrabbit-os-release
     steps:
       - name: Check out public orchestration
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with: {persist-credentials: false}
+      - name: Generate Source Reader installation token
+        id: source_reader
+        uses: actions/create-github-app-token@v2
         with:
-          persist-credentials: false
-
+          app-id: ${{ vars.CYBERRABBIT_SOURCE_READER_APP_ID }}
+          private-key: ${{ secrets.CYBERRABBIT_SOURCE_READER_APP_PRIVATE_KEY }}
+          owner: zcx80279-collab
+          repositories: Magic-Rabbit
+          permission-contents: read
+          permission-metadata: read
+      - name: Resolve and trust private source revision
+        id: source
+        shell: bash
+        env: {GH_TOKEN: '${{ steps.source_reader.outputs.token }}', REQUESTED_REF: '${{ inputs.source_ref }}'}
+        run: |
+          set -euo pipefail
+          if [ "$REQUESTED_REF" = main ]; then
+            source_sha=$(gh api repos/zcx80279-collab/Magic-Rabbit/commits/main --jq .sha)
+          elif [[ "$REQUESTED_REF" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            source_sha=$(gh api "repos/zcx80279-collab/Magic-Rabbit/commits/$REQUESTED_REF" --jq .sha)
+            status=$(gh api "repos/zcx80279-collab/Magic-Rabbit/compare/${source_sha}...main" --jq .status)
+            case "$status" in ahead|identical) ;; *) echo "::error::The source commit is not contained in private main."; exit 1;; esac
+          else
+            echo "::error::source_ref must be main or a full commit SHA."; exit 1
+          fi
+          echo "sha=$source_sha" >> "$GITHUB_OUTPUT"
       - name: Check out private CyberRabbit OS source
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
           repository: zcx80279-collab/Magic-Rabbit
-          ref: ${{ inputs.source_ref }}
-          ssh-key: ${{ secrets.CYBERRABBIT_SOURCE_SSH_KEY }}
+          ref: ${{ steps.source.outputs.sha }}
+          token: ${{ steps.source_reader.outputs.token }}
           persist-credentials: false
           fetch-depth: 1
           path: .source/cyberrabbit-os
-
       - name: Set up Node.js
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
-        with:
-          node-version: '24'
-          cache: npm
-          cache-dependency-path: .source/cyberrabbit-os/package-lock.json
-
+        with: {node-version: '24', cache: npm, cache-dependency-path: .source/cyberrabbit-os/package-lock.json}
       - name: Resolve monotonic version
         id: version
         shell: bash
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
+        env: {GITHUB_TOKEN: '${{ github.token }}'}
         run: node scripts/resolve-version.mjs windows '${{ inputs.version }}'
-
-      - name: Scan private source before build
+      - name: Scan private source before secrets are restored
         shell: bash
         run: bash scripts/security-scan.sh .source/cyberrabbit-os
-
+      - name: Restore encrypted GPG vault in runner temp
+        id: vault
+        shell: bash
+        env:
+          SOURCE_TOKEN: ${{ steps.source_reader.outputs.token }}
+          VAULT_PASSWORD: ${{ secrets.CYBERRABBIT_VAULT_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          stage="$RUNNER_TEMP/cyberrabbit-signing"
+          install -d -m 700 "$stage" "$stage/secrets" "$stage/gpg"
+          GITHUB_TOKEN="$SOURCE_TOKEN" GITHUB_REPOSITORY=zcx80279-collab/Magic-Rabbit VAULT_ASSET_NAME=cyberrabbit-keystore.vault.enc VAULT_OUTPUT_PATH="$stage/vault.enc" node .source/cyberrabbit-os/scripts/github-vault-release.mjs download
+          VAULT_INPUT_PATH="$stage/vault.enc" KEYSTORE_OUTPUT_PATH="$stage/rabbit-release.jks" SECRETS_OUTPUT_DIR="$stage/secrets" GPG_EXPORT_DIR="$stage/gpg" node .source/cyberrabbit-os/scripts/android-keystore-vault.mjs decrypt
+          test -s "$stage/gpg/gpg-private.asc"
+          echo "stage=$stage" >> "$GITHUB_OUTPUT"
       - name: Set exact build version
         run: node scripts/set-source-version.mjs .source/cyberrabbit-os '${{ steps.version.outputs.version }}'
-
       - name: Install, test, and build installer
         working-directory: .source/cyberrabbit-os
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-          GOOGLE_DESKTOP_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_DESKTOP_OAUTH_CLIENT_ID }}
+          GOOGLE_DESKTOP_OAUTH_CLIENT_ID: ${{ vars.GOOGLE_DESKTOP_OAUTH_CLIENT_ID }}
         run: |
           if (-not $env:GOOGLE_DESKTOP_OAUTH_CLIENT_ID) { throw 'GOOGLE_DESKTOP_OAUTH_CLIENT_ID is missing' }
           npm ci --ignore-scripts --no-audit --no-fund
@@ -78,45 +94,52 @@ jobs:
           npm test
           npm run desktop:prepare
           npx electron-builder --config electron-builder.yml --win --publish never
-
       - name: Verify Windows artifacts
         shell: bash
-        env:
-          VERSION: ${{ steps.version.outputs.version }}
+        env: {VERSION: '${{ steps.version.outputs.version }}'}
         run: |
           set -euo pipefail
-          root=.source/cyberrabbit-os/release
-          exe="$root/CyberRabbitOS-Setup-${VERSION}.exe"
-          zip="$root/CyberRabbitOS-${VERSION}-x64.zip"
-          blockmap="${exe}.blockmap"
-          yml="$root/latest.yml"
+          root=.source/cyberrabbit-os/release; exe="$root/CyberRabbitOS-Setup-${VERSION}.exe"; zip="$root/CyberRabbitOS-${VERSION}-x64.zip"; blockmap="${exe}.blockmap"; yml="$root/latest.yml"
           for file in "$exe" "$zip" "$blockmap" "$yml"; do test -s "$file"; done
           test "$(dd if="$exe" bs=2 count=1 2>/dev/null)" = MZ
-          if strings "$exe" | grep -Eq '(gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,}|-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----)'; then
-            echo '::error::High-confidence secret pattern embedded in EXE.'
-            exit 1
-          fi
-
-      - name: Publish immutable release and Windows feed
-        if: ${{ inputs.publish }}
+          if strings "$exe" | grep -Eq '(gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,}|-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----)'; then echo '::error::High-confidence secret pattern embedded in EXE.'; exit 1; fi
+      - name: GPG sign public artifacts with existing key
+        id: gpg
         shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GITHUB_TOKEN: ${{ github.token }}
-          VERSION: ${{ steps.version.outputs.version }}
-          TAG: ${{ steps.version.outputs.tag }}
+        env: {STAGE: '${{ steps.vault.outputs.stage }}', VERSION: '${{ steps.version.outputs.version }}'}
         run: |
           set -euo pipefail
           root=.source/cyberrabbit-os/release
-          exe="CyberRabbitOS-Setup-${VERSION}.exe"
-          zip="CyberRabbitOS-${VERSION}-x64.zip"
-          source_sha=$(git -C .source/cyberrabbit-os rev-parse HEAD)
+          GNUPGHOME="$STAGE/gnupg-active" GPG_PRIVATE_KEY_PATH="$STAGE/gpg/gpg-private.asc" GPG_PASSPHRASE_PATH="$STAGE/gpg/gpg-passphrase.txt" GPG_PUBLIC_EXPORT_PATH="$root/cyberrabbit-release-gpg-public.asc" node .source/cyberrabbit-os/scripts/gpg-signing.mjs setup
+          key_id=$(GNUPGHOME="$STAGE/gnupg-active" gpg --with-colons --list-secret-keys | awk -F: '$1=="fpr"{print $10; exit}')
+          export GNUPGHOME="$STAGE/gnupg-active" GPG_KEY_ID="$key_id" GPG_PASSPHRASE_FILE="$STAGE/gnupg-active/.passphrase"
+          for file in "$root/CyberRabbitOS-Setup-${VERSION}.exe" "$root/CyberRabbitOS-Setup-${VERSION}.exe.blockmap" "$root/CyberRabbitOS-${VERSION}-x64.zip" "$root/latest.yml"; do
+            sha256sum "$file" >"$file.sha256"
+            node .source/cyberrabbit-os/scripts/gpg-signing.mjs sign-file "$file" "$file.asc"
+            node .source/cyberrabbit-os/scripts/gpg-signing.mjs sign-file "$file.sha256" "$file.sha256.asc"
+          done
+          echo "key_id=$key_id" >> "$GITHUB_OUTPUT"
+      - name: Publish immutable release and Windows feed
+        if: inputs.publish
+        shell: bash
+        env: {GH_TOKEN: '${{ github.token }}', GITHUB_TOKEN: '${{ github.token }}', VERSION: '${{ steps.version.outputs.version }}', TAG: '${{ steps.version.outputs.tag }}', SOURCE_SHA: '${{ steps.source.outputs.sha }}', GPG_KEY_ID: '${{ steps.gpg.outputs.key_id }}'}
+        run: |
+          set -euo pipefail
+          root=.source/cyberrabbit-os/release; exe="CyberRabbitOS-Setup-${VERSION}.exe"; zip="CyberRabbitOS-${VERSION}-x64.zip"
           gh release view "$TAG" >/dev/null 2>&1 && { echo '::error::Release tag already exists.'; exit 1; } || true
-          gh release create "$TAG" "$root/$exe" "$root/$exe.blockmap" "$root/$zip" "$root/latest.yml" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "CyberRabbit OS Windows v${VERSION}" --notes "CyberRabbit OS Windows\n\nSource commit: ${source_sha}"
-          encoded_tag=$(node -p 'encodeURIComponent(process.argv[1])' "$TAG")
-          base="https://github.com/${GITHUB_REPOSITORY}/releases/download/${encoded_tag}"
+          gh release create "$TAG" "$root/$exe"* "$root/$zip"* "$root/latest.yml"* "$root/cyberrabbit-release-gpg-public.asc" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "CyberRabbit OS Windows v${VERSION}" --notes "Cyber Rabbit OS Windows
+
+          Source commit: ${SOURCE_SHA}
+          GPG signing key: ${GPG_KEY_ID}"
+          encoded_tag=$(node -p 'encodeURIComponent(process.argv[1])' "$TAG"); base="https://github.com/${GITHUB_REPOSITORY}/releases/download/${encoded_tag}"
           sed -e "s#url: ${exe}#url: ${base}/${exe}#" -e "s#path: ${exe}#path: ${base}/${exe}#" "$root/latest.yml" >"$root/public-latest.yml"
           node scripts/publish-feed.mjs cyberrabbit-os/windows/latest.yml "$root/public-latest.yml" "CyberRabbit OS Windows ${VERSION} feed"
-          jq -n --arg version "$VERSION" --arg tag "$TAG" --arg url "${base}/${exe}" --arg api "" --arg name "$exe" --arg source "$source_sha" --arg published "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '{version:$version,tag_name:$tag,name:("CyberRabbit OS Windows v"+$version),body:"CyberRabbit OS Windows",published_at:$published,source_sha:$source,assets:[{name:$name,browser_download_url:$url,url:$api}]}' >"$root/windows-feed.json"
+          jq -n --arg version "$VERSION" --arg tag "$TAG" --arg url "${base}/${exe}" --arg name "$exe" --arg source "$SOURCE_SHA" --arg published "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '{version:$version,tag_name:$tag,name:("CyberRabbit OS Windows v"+$version),body:"CyberRabbit OS Windows",published_at:$published,source_sha:$source,assets:[{name:$name,browser_download_url:$url}]}' >"$root/windows-feed.json"
           node scripts/publish-feed.mjs cyberrabbit-os/windows/release.json "$root/windows-feed.json" "CyberRabbit OS Windows ${VERSION} release feed"
-
+      - name: Clean temporary signing material
+        if: always()
+        shell: bash
+        env: {STAGE: '${{ steps.vault.outputs.stage }}'}
+        run: |
+          find .source -type f \( -name '*.jks' -o -name '*.keystore' -o -name '*.p12' -o -name '*.pfx' -o -name '*gpg-private*' \) -delete 2>/dev/null || true
+          if [ -n "$STAGE" ] && [ "$STAGE" != / ]; then rm -rf -- "$STAGE"; fi
