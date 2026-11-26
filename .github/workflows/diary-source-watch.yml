@@ -2,7 +2,7 @@ name: Diary System Source Watch
 
 on:
   schedule:
-    - cron: '37 */6 * * *'
+    - cron: '37 */3 * * *'
   workflow_dispatch:
 
 permissions:
