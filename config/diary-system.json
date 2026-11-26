@@ -1,0 +1,14 @@
+{
+  "sourceRepository": "zcx80279-collab/Magic-Rabbit--K2",
+  "androidAppId": "com.diarysystem.app",
+  "windowsAppId": "com.diarysystem.desktop",
+  "minimumVersions": {
+    "android": "1.0.83",
+    "androidVersionCode": 83,
+    "windows": "1.0.0"
+  },
+  "tagPrefixes": {
+    "android": "diary-system/android/v",
+    "windows": "diary-system/windows/v"
+  }
+}

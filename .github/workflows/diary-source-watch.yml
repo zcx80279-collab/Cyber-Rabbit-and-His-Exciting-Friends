@@ -1,0 +1,44 @@
+name: Diary System Source Watch
+
+on:
+  schedule:
+    - cron: '37 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  detect:
+    if: ${{ github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || vars.DIARY_AUTOMATION_ENABLED == 'true') }}
+    runs-on: ubuntu-latest
+    environment: diary-system-release
+    steps:
+      - name: Generate Diary Source Reader installation token
+        id: source_reader
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.DIARY_SOURCE_READER_APP_ID }}
+          private-key: ${{ secrets.DIARY_SOURCE_READER_APP_PRIVATE_KEY }}
+          owner: zcx80279-collab
+          repositories: Magic-Rabbit--K2
+          permission-contents: read
+          permission-metadata: read
+
+      - name: Dispatch builds only for an unseen source commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_TOKEN: ${{ steps.source_reader.outputs.token }}
+        run: |
+          set -euo pipefail
+          source_sha=$(GH_TOKEN="$SOURCE_TOKEN" gh api repos/zcx80279-collab/Magic-Rabbit--K2/commits/main --jq .sha)
+          releases=$(gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100")
+          android_seen=$(jq --arg sha "$source_sha" '[.[] | select((.tag_name | startswith("diary-system/android/")) and (.body // "" | contains($sha)))] | length' <<<"$releases")
+          windows_seen=$(jq --arg sha "$source_sha" '[.[] | select((.tag_name | startswith("diary-system/windows/")) and (.body // "" | contains($sha)))] | length' <<<"$releases")
+          if [ "$android_seen" -eq 0 ]; then
+            gh workflow run diary-android.yml --repo "$GITHUB_REPOSITORY" -f source_ref="$source_sha" -f version=auto -f publish=true
+          fi
+          if [ "$windows_seen" -eq 0 ]; then
+            gh workflow run diary-windows.yml --repo "$GITHUB_REPOSITORY" -f source_ref="$source_sha" -f version=auto -f publish=true
+          fi

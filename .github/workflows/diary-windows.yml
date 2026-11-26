@@ -1,0 +1,110 @@
+name: Diary System Windows
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_ref: {description: Private source main or a full commit SHA contained in main, required: true, default: main}
+      version: {description: X.Y.Z or auto, required: true, default: auto}
+      publish: {description: Publish release, required: true, type: boolean, default: false}
+
+concurrency: {group: diary-system-windows-release, cancel-in-progress: false}
+permissions: {contents: write}
+
+jobs:
+  build:
+    if: github.ref == 'refs/heads/main'
+    runs-on: windows-latest
+    timeout-minutes: 60
+    environment: diary-system-release
+    steps:
+      - name: Check out public orchestration
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with: {persist-credentials: false}
+
+      - name: Generate Diary Source Reader installation token
+        id: source_reader
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.DIARY_SOURCE_READER_APP_ID }}
+          private-key: ${{ secrets.DIARY_SOURCE_READER_APP_PRIVATE_KEY }}
+          owner: zcx80279-collab
+          repositories: Magic-Rabbit--K2
+          permission-contents: read
+          permission-metadata: read
+
+      - name: Resolve and trust private source revision
+        id: source
+        shell: bash
+        env: {GH_TOKEN: '${{ steps.source_reader.outputs.token }}', REQUESTED_REF: '${{ inputs.source_ref }}'}
+        run: |
+          set -euo pipefail
+          if [ "$REQUESTED_REF" = main ]; then
+            source_sha=$(gh api repos/zcx80279-collab/Magic-Rabbit--K2/commits/main --jq .sha)
+          elif [[ "$REQUESTED_REF" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            source_sha=$(gh api "repos/zcx80279-collab/Magic-Rabbit--K2/commits/$REQUESTED_REF" --jq .sha)
+            status=$(gh api "repos/zcx80279-collab/Magic-Rabbit--K2/compare/${source_sha}...main" --jq .status)
+            case "$status" in ahead|identical) ;; *) echo "::error::The source commit is not contained in private main."; exit 1;; esac
+          else
+            echo "::error::source_ref must be main or a full commit SHA."; exit 1
+          fi
+          echo "sha=$source_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Check out private Diary System source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          repository: zcx80279-collab/Magic-Rabbit--K2
+          ref: ${{ steps.source.outputs.sha }}
+          token: ${{ steps.source_reader.outputs.token }}
+          persist-credentials: false
+          fetch-depth: 1
+          path: .source/diary-system
+
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with: {node-version: '24'}
+
+      - name: Resolve monotonic version
+        id: version
+        shell: bash
+        env: {GITHUB_TOKEN: '${{ github.token }}'}
+        run: node scripts/diary-resolve-version.mjs windows '${{ inputs.version }}'
+
+      - name: Scan private source before build
+        shell: bash
+        run: bash scripts/security-scan.sh .source/diary-system
+
+      - name: Install dependencies and build web application
+        working-directory: .source/diary-system
+        run: |
+          npm install
+          npm run build
+
+      - name: Build Windows NSIS installer (.exe)
+        working-directory: .source/diary-system
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: npx electron-builder --win nsis --publish never -c.extraMetadata.version="$env:VERSION"
+
+      - name: Publish release
+        if: inputs.publish
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+          TAG: ${{ steps.version.outputs.tag }}
+          SOURCE_SHA: ${{ steps.source.outputs.sha }}
+        run: |
+          set -euo pipefail
+          exe=".source/diary-system/release/DIARY-SYSTEM-Setup-${VERSION}.exe"
+          test -s "$exe"
+          gh release view "$TAG" >/dev/null 2>&1 && { echo '::error::Release tag already exists.'; exit 1; } || true
+          sha256sum "$exe" > "${exe}.sha256"
+          gh release create "$TAG" "$exe" "${exe}.sha256" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --prerelease \
+            --title "Diary System Windows v${VERSION}" \
+            --notes "Diary System Windows
+
+version: ${VERSION}
+Source commit: ${SOURCE_SHA}"
