@@ -117,4 +117,18 @@ Resume in this order:
   Windows workflow now imports, signs, and self-verifies with Git Bash `gpg`
   using POSIX paths, while preserving the same restored private key and
   passphrase.
+- Orchestration commit `67e46f5` passed both parallel validation workflows
+  with `source_ref=main`, `version=auto`, and `publish=false`: Android run
+  `45755301596` resolved version `1.0.109`; Windows run `45755301729` resolved
+  version `1.0.96`. Source authentication, vault restoration, builds,
+  artifact checks, existing Android certificate checks, and GPG signing and
+  self-verification all completed successfully.
+- Successful certificate verification retained Android SHA-1
+  `8C:CC:2D:5B:DC:ED:18:D7:C2:30:00:07:35:E4:92:BC:E2:1B:2A:96`, SHA-256
+  `13:C7:49:8F:F9:1F:8D:18:33:9B:B9:9F:14:DF:C3:BE:15:56:1B:A8:B1:35:CC:5D:93:77:C0:50:2B:79:FE:F7`, and GPG primary fingerprint
+  `B92A0E78A8B020F3DFF6F5D7A9400256FF5B9C7B`. No permanent key or vault was
+  regenerated or modified.
+- Both successful runs report GitHub's non-blocking Node 20 deprecation
+  warning for `actions/create-github-app-token@v2`; GitHub currently forces
+  that action to Node 24. This did not affect authentication or either build.
 
