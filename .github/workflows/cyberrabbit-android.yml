@@ -93,8 +93,9 @@ jobs:
         run: |
           set -euo pipefail
           test -n "$ANDROID_GOOGLE_WEB_CLIENT_ID"
-          if [ ! -d android ]; then npx cap add android; fi
-          npx cap sync android
+          npm install --no-save --package-lock=false --ignore-scripts --no-audit --no-fund @capacitor/cli@8.6.2 @capacitor/android@8.6.2
+          if [ ! -d android ]; then ./node_modules/.bin/cap add android; fi
+          ./node_modules/.bin/cap sync android
           node scripts/configure-android-manifest.mjs
       - name: Verify existing signing certificate
         id: signing

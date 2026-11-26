@@ -75,7 +75,7 @@ jobs:
         run: |
           set -euo pipefail
           stage="$RUNNER_TEMP/cyberrabbit-signing"
-          install -d -m 700 "$stage" "$stage/secrets" "$stage/gpg"
+          mkdir -p "$stage" "$stage/secrets" "$stage/gpg"
           test -n "$VAULT_BASE64"; test -n "$VAULT_PASSWORD"
           printf '%s' "$VAULT_BASE64" | base64 --decode > "$stage/vault.enc"
           VAULT_INPUT_PATH="$stage/vault.enc" KEYSTORE_OUTPUT_PATH="$stage/rabbit-release.jks" SECRETS_OUTPUT_DIR="$stage/secrets" GPG_EXPORT_DIR="$stage/gpg" node .source/cyberrabbit-os/scripts/android-keystore-vault.mjs decrypt

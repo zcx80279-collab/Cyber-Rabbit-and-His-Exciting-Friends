@@ -94,3 +94,17 @@ Resume in this order:
 4. Run the existing private `Windows Desktop Build` once to produce the final
    bridge release for clients still checking the private repository.
 
+## Build migration log — 2026-11-26
+
+- Android run `45751480661` restored the existing vault and completed source
+  tests, then failed because the private source does not install
+  `@capacitor/cli` or `@capacitor/android`. The public workflow now installs
+  pinned Capacitor `8.6.2` tooling without changing the private package files
+  and invokes the local executable directly.
+- Windows run `45751498403` reached vault restoration, then Git Bash failed to
+  apply POSIX mode `0700` on the Windows runner. The workflow now creates the
+  runner-temporary directories with `mkdir -p`; encrypted and decrypted files
+  remain under `RUNNER_TEMP` and the existing cleanup step is unchanged.
+- No signing key, vault, application source, release, or update feed was
+  changed by these fixes.
+
