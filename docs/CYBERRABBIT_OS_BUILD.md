@@ -43,9 +43,10 @@ certificate fingerprints differ from the previously released application.
 5. Confirm Android installation upgrade, Windows NSIS update, Google login, Drive access, and signature continuity.
 6. Only then disable automatic triggers in the private repository. Do not delete its workflow files.
 
-Scheduled detection remains disabled until the repository variable
-`CYBERRABBIT_AUTOMATION_ENABLED` is explicitly set to `true` after both
-validation builds and migration releases succeed.
+Scheduled detection runs from trusted `main` every six hours. It only
+dispatches a platform build when that platform has no public release whose
+body records the current private-source commit. Manual dispatch uses the same
+deduplication check.
 
 The `update-feeds` branch contains only public update metadata. It must never
 contain source, logs, signing material, OAuth secrets, or user data.
@@ -80,19 +81,11 @@ contain source, logs, signing material, OAuth secrets, or user data.
   the Source Reader private key, Keystore-Sync private key, or vault
   passphrase. GitHub does not allow Actions Secret values to be read back, so
   local provisioning cannot safely replace the blocked private job.
-- No public Android or Windows release and no `update-feeds` branch exist yet.
-  Do not publish a transition release until provisioning, vault decryption,
-  certificate verification, and both validation builds succeed.
-
-Resume in this order:
-
-1. Run the private `Provision Public CyberRabbit OS Release` workflow after
-   private Actions usage is available.
-2. Run Android and Windows with `publish=false` and verify the recorded
-   fingerprints.
-3. Publish both public releases and verify the Windows feed.
-4. Run the existing private `Windows Desktop Build` once to produce the final
-   bridge release for clients still checking the private repository.
+- Public validation, publication, and update-feed generation are complete.
+  The remaining rollout item is the final private `Windows Desktop Build`
+  bridge release for clients still checking the private repository. Rerun
+  private workflow run `45756375044` after that repository's Actions budget
+  is available; no source or key change is required.
 
 ## Build migration log — 2026-11-26
 
@@ -131,4 +124,22 @@ Resume in this order:
 - Both successful runs report GitHub's non-blocking Node 20 deprecation
   warning for `actions/create-github-app-token@v2`; GitHub currently forces
   that action to Node 24. This did not affect authentication or either build.
+- Publishing runs `45755828514` (Android) and `45755834000` (Windows)
+  succeeded. They created immutable public releases
+  `cyberrabbit-os/android/v1.0.109` and
+  `cyberrabbit-os/windows/v1.0.96` from private source commit
+  `fea1d278c4c49fb473f77bc391121d7d4dc07a2a`, including checksums, detached
+  GPG signatures, and the existing public signing key.
+- The `update-feeds` branch now contains Android release metadata and the
+  Windows `latest.yml`/release metadata. The Windows installer URL targets the
+  public repository release and retains electron-updater's SHA-512 and size.
+- Manual source-watch run `45756424348` authenticated to the private source,
+  found the source SHA in both public release bodies, and completed without
+  dispatching duplicate builds. Trusted `main` scheduled detection is now
+  enabled every six hours with the same per-platform deduplication rule.
+- The final private-repository Windows bridge release was attempted once as
+  run `45756375044`, but GitHub did not start any step because the private
+  repository Actions budget still prevents further use. Existing Windows
+  clients on the private update feed therefore cannot move to the public feed
+  until that one bridge build is rerun after the budget is available.
 
