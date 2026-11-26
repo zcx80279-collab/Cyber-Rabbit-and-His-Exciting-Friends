@@ -1,0 +1,15 @@
+{
+  "version": "1.0.109",
+  "tag_name": "cyberrabbit-os/android/v1.0.109",
+  "name": "CyberRabbit OS Android v1.0.109",
+  "body": "CyberRabbit OS Android",
+  "published_at": "2026-11-26T04:34:30Z",
+  "source_sha": "fea1d278c4c49fb473f77bc391121d7d4dc07a2a",
+  "assets": [
+    {
+      "name": "CyberRabbitOS-Android-1.0.109.apk",
+      "browser_download_url": "https://github.com/zcx80279-collab/Cyber-Rabbit-and-His-Exciting-Friends/releases/download/cyberrabbit-os%2Fandroid%2Fv1.0.109/CyberRabbitOS-Android-1.0.109.apk",
+      "sha256": "cce40ef172ba351815fb9ec4ee47221d116b0361c143d2c5d7dc12d38d53a402"
+    }
+  ]
+}
