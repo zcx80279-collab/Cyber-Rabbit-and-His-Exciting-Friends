@@ -69,13 +69,14 @@ jobs:
       - name: Restore encrypted signing vault in runner temp
         id: vault
         env:
-          SOURCE_TOKEN: ${{ steps.source_reader.outputs.token }}
+          VAULT_BASE64: ${{ secrets.CYBERRABBIT_VAULT_BASE64 }}
           VAULT_PASSWORD: ${{ secrets.CYBERRABBIT_VAULT_PASSPHRASE }}
         run: |
           set -euo pipefail
           stage="$RUNNER_TEMP/cyberrabbit-signing"
           install -d -m 700 "$stage" "$stage/secrets" "$stage/gpg"
-          GITHUB_TOKEN="$SOURCE_TOKEN" GITHUB_REPOSITORY=zcx80279-collab/Magic-Rabbit VAULT_ASSET_NAME=cyberrabbit-keystore.vault.enc VAULT_OUTPUT_PATH="$stage/vault.enc" node .source/cyberrabbit-os/scripts/github-vault-release.mjs download
+          test -n "$VAULT_BASE64"; test -n "$VAULT_PASSWORD"
+          printf '%s' "$VAULT_BASE64" | base64 --decode > "$stage/vault.enc"
           VAULT_INPUT_PATH="$stage/vault.enc" KEYSTORE_OUTPUT_PATH="$stage/rabbit-release.jks" SECRETS_OUTPUT_DIR="$stage/secrets" GPG_EXPORT_DIR="$stage/gpg" node .source/cyberrabbit-os/scripts/android-keystore-vault.mjs decrypt
           test -s "$stage/rabbit-release.jks"; test -s "$stage/gpg/gpg-private.asc"
           echo "stage=$stage" >> "$GITHUB_OUTPUT"

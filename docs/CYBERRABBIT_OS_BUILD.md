@@ -9,6 +9,7 @@ deployment.
 Required environment secret:
 
 - `CYBERRABBIT_VAULT_PASSPHRASE`: existing encrypted vault master passphrase
+- `CYBERRABBIT_VAULT_BASE64`: unchanged encrypted vault envelope, registered by provisioning
 
 Repository Source Reader credentials:
 
@@ -24,8 +25,11 @@ Run `Provision Public CyberRabbit OS Release` in the private source repository
 to register the passphrase and OAuth identifiers with the existing
 Keystore-Sync GitHub App. Its private key remains in the private repository.
 The public workflows use a short-lived Source Reader installation token to
-download the private source and encrypted Draft Release vault. Android and GPG
-keys are decrypted only under `RUNNER_TEMP`, verified, used, and deleted.
+download the private source. Read-only GitHub Apps cannot read private Draft
+Release assets, so the private provisioning workflow copies the unchanged
+encrypted vault envelope into the release Environment with Keystore-Sync.
+Android and GPG keys are decrypted only under `RUNNER_TEMP`, verified, used,
+and deleted.
 
 Never create a replacement Android key. The workflow rejects a keystore whose
 certificate fingerprints differ from the previously released application.
@@ -58,11 +62,13 @@ contain source, logs, signing material, OAuth secrets, or user data.
   `B92A0E78A8B020F3DFF6F5D7A9400256FF5B9C7B`. No key or vault was changed.
 - Private provisioning run `45724567209` did not start because the private
   repository Actions budget prevented job execution.
-- Public Android validation run `45725233248` received Source Reader App ID
-  `5928892` and its private key, but GitHub returned HTTP 404 for
-  `GET /repos/zcx80279-collab/Magic-Rabbit/installation`. Confirm that this
-  exact App installation still selects `Magic-Rabbit`; do not generate a new
-  App or key.
+- Source Reader App ID `5928892` authentication, private `main` resolution, and
+  source checkout succeeded in runs `45727285756` and `45727395688` after its
+  existing installation was corrected.
+- Run `45727395688` confirmed that a Contents-read installation token cannot
+  see private Draft Release assets. The workflow now keeps that least-privilege
+  scope and receives the unchanged encrypted vault through Keystore-Sync
+  provisioning instead of expanding Source Reader permissions.
 - The managed local runner has repository administration through its existing
   connector token and can download the encrypted vault, but it does not hold
   the Source Reader private key, Keystore-Sync private key, or vault
@@ -74,12 +80,11 @@ contain source, logs, signing material, OAuth secrets, or user data.
 
 Resume in this order:
 
-1. Re-select `Magic-Rabbit` in the existing Source Reader App installation.
-2. Run the private `Provision Public CyberRabbit OS Release` workflow after
+1. Run the private `Provision Public CyberRabbit OS Release` workflow after
    private Actions usage is available.
-3. Run Android and Windows with `publish=false` and verify the recorded
+2. Run Android and Windows with `publish=false` and verify the recorded
    fingerprints.
-4. Publish both public releases and verify the Windows feed.
-5. Run the existing private `Windows Desktop Build` once to produce the final
+3. Publish both public releases and verify the Windows feed.
+4. Run the existing private `Windows Desktop Build` once to produce the final
    bridge release for clients still checking the private repository.
 
