@@ -80,6 +80,8 @@ jobs:
           VAULT_INPUT_PATH="$stage/vault.enc" KEYSTORE_OUTPUT_PATH="$stage/rabbit-release.jks" SECRETS_OUTPUT_DIR="$stage/secrets" GPG_EXPORT_DIR="$stage/gpg" node .source/cyberrabbit-os/scripts/android-keystore-vault.mjs decrypt
           test -s "$stage/rabbit-release.jks"; test -s "$stage/gpg/gpg-private.asc"
           echo "stage=$stage" >> "$GITHUB_OUTPUT"
+      - name: Set exact build version
+        run: node scripts/set-source-version.mjs .source/cyberrabbit-os '${{ steps.version.outputs.version }}'
       - name: Install, test, and build web application
         working-directory: .source/cyberrabbit-os
         run: |
@@ -93,8 +95,11 @@ jobs:
         run: |
           set -euo pipefail
           test -n "$ANDROID_GOOGLE_WEB_CLIENT_ID"
-          npm install --no-save --package-lock=false --ignore-scripts --no-audit --no-fund @capacitor/cli@8.6.2 @capacitor/android@8.6.2
+          npm install --no-save --package-lock=false --ignore-scripts --no-audit --no-fund @capacitor/cli@8.6.2 @capacitor/android@8.6.2 @capacitor/assets
           if [ ! -d android ]; then ./node_modules/.bin/cap add android; fi
+          if [ -d resources ]; then
+            ./node_modules/.bin/capacitor-assets generate --android --assetPath resources --iconBackgroundColor '#12071f'
+          fi
           ./node_modules/.bin/cap sync android
           node scripts/configure-android-manifest.mjs
       - name: Verify existing signing certificate
