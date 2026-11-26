@@ -111,13 +111,19 @@ jobs:
         run: |
           set -euo pipefail
           root=.source/cyberrabbit-os/release
-          GNUPGHOME="$STAGE/gnupg-active" GPG_PRIVATE_KEY_PATH="$STAGE/gpg/gpg-private.asc" GPG_PASSPHRASE_PATH="$STAGE/gpg/gpg-passphrase.txt" GPG_PUBLIC_EXPORT_PATH="$root/cyberrabbit-release-gpg-public.asc" node .source/cyberrabbit-os/scripts/gpg-signing.mjs setup
-          key_id=$(GNUPGHOME="$STAGE/gnupg-active" gpg --with-colons --list-secret-keys | awk -F: '$1=="fpr"{print $10; exit}')
-          export GNUPGHOME="$STAGE/gnupg-active" GPG_KEY_ID="$key_id" GPG_PASSPHRASE_FILE="$STAGE/gnupg-active/.passphrase"
+          stage_posix=$(cygpath -u "$STAGE")
+          export GNUPGHOME="$stage_posix/gnupg-active"
+          mkdir -p "$GNUPGHOME"
+          gpg --batch --yes --pinentry-mode loopback --passphrase-file "$stage_posix/gpg/gpg-passphrase.txt" --import "$stage_posix/gpg/gpg-private.asc"
+          key_id=$(gpg --with-colons --list-secret-keys | awk -F: '$1=="fpr"{print $10; exit}')
+          test -n "$key_id"
+          gpg --batch --armor --export "$key_id" > "$root/cyberrabbit-release-gpg-public.asc"
           for file in "$root/CyberRabbitOS-Setup-${VERSION}.exe" "$root/CyberRabbitOS-Setup-${VERSION}.exe.blockmap" "$root/CyberRabbitOS-${VERSION}-x64.zip" "$root/latest.yml"; do
             sha256sum "$file" >"$file.sha256"
-            node .source/cyberrabbit-os/scripts/gpg-signing.mjs sign-file "$file" "$file.asc"
-            node .source/cyberrabbit-os/scripts/gpg-signing.mjs sign-file "$file.sha256" "$file.sha256.asc"
+            for target in "$file" "$file.sha256"; do
+              gpg --batch --yes --no-tty --pinentry-mode loopback --passphrase-file "$stage_posix/gpg/gpg-passphrase.txt" --local-user "$key_id" --armor --detach-sign --output "$target.asc" "$target"
+              gpg --batch --verify "$target.asc" "$target"
+            done
           done
           echo "key_id=$key_id" >> "$GITHUB_OUTPUT"
       - name: Publish immutable release and Windows feed

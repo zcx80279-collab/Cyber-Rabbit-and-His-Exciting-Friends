@@ -107,4 +107,14 @@ Resume in this order:
   remain under `RUNNER_TEMP` and the existing cleanup step is unchanged.
 - No signing key, vault, application source, release, or update feed was
   changed by these fixes.
+- Parallel validation runs `45754842974` and `45754843823` confirmed that the
+  original two failures are fixed. Android completed APK assembly and existing
+  certificate verification before its APK inspection script exited without a
+  diagnostic. The inspection now reports signer failures and compares the
+  digests using the same output format as the established private workflow.
+- Windows completed installer packaging and artifact validation. Its GPG step
+  then exposed a second MSYS path conversion issue in the Node wrapper. The
+  Windows workflow now imports, signs, and self-verifies with Git Bash `gpg`
+  using POSIX paths, while preserving the same restored private key and
+  passphrase.
 

@@ -9,12 +9,22 @@ test -s "$apk"
 sdk_root=${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}
 apksigner=$(find "$sdk_root/build-tools" -name apksigner -type f | sort -V | tail -n 1)
 test -n "$apksigner"
-output=$($apksigner verify --verbose --print-certs "$apk")
-actual_sha1=$(printf '%s\n' "$output" | sed -n 's/^Signer #1 certificate SHA-1 digest: //p' | head -n 1)
-actual_sha256=$(printf '%s\n' "$output" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -n 1)
+if ! output=$("$apksigner" verify --verbose --print-certs "$apk" 2>&1); then
+  printf '%s\n' "$output"
+  echo '::error::APK signature verification failed.'
+  exit 1
+fi
+actual_sha1=$(printf '%s\n' "$output" | awk -F': ' '/certificate SHA-1 digest:/{print $NF; exit}')
+actual_sha256=$(printf '%s\n' "$output" | awk -F': ' '/certificate SHA-256 digest:/{print $NF; exit}')
 normalize() { printf '%s' "$1" | tr '[:lower:]' '[:upper:]' | tr -d '[:space:]:'; }
-test "$(normalize "$actual_sha1")" = "$(normalize "$expected_sha1")"
-test "$(normalize "$actual_sha256")" = "$(normalize "$expected_sha256")"
+if [ -z "$actual_sha1" ] || [ "$(normalize "$actual_sha1")" != "$(normalize "$expected_sha1")" ]; then
+  echo "::error::APK SHA-1 certificate fingerprint mismatch."
+  exit 1
+fi
+if [ -z "$actual_sha256" ] || [ "$(normalize "$actual_sha256")" != "$(normalize "$expected_sha256")" ]; then
+  echo "::error::APK SHA-256 certificate fingerprint mismatch."
+  exit 1
+fi
 
 if unzip -Z1 "$apk" | grep -Eiq '(^|/)(.*\.(jks|keystore|p12|pfx|pem|key|env|map)|google-services\.json|service-account.*)$'; then
   echo '::error::Forbidden file embedded in APK.'
