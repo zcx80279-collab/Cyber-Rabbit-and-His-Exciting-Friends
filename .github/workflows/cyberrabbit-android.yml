@@ -70,13 +70,16 @@ jobs:
         id: vault
         env:
           VAULT_BASE64: ${{ secrets.CYBERRABBIT_VAULT_BASE64 }}
+          VAULT_BASE64_1: ${{ secrets.CYBERRABBIT_VAULT_BASE64_1 }}
+          VAULT_BASE64_2: ${{ secrets.CYBERRABBIT_VAULT_BASE64_2 }}
           VAULT_PASSWORD: ${{ secrets.CYBERRABBIT_VAULT_PASSPHRASE }}
         run: |
           set -euo pipefail
           stage="$RUNNER_TEMP/cyberrabbit-signing"
           install -d -m 700 "$stage" "$stage/secrets" "$stage/gpg"
-          test -n "$VAULT_BASE64"; test -n "$VAULT_PASSWORD"
-          printf '%s' "$VAULT_BASE64" | base64 --decode > "$stage/vault.enc"
+          VAULT_B64="${VAULT_BASE64:-${VAULT_BASE64_1}${VAULT_BASE64_2}}"
+          test -n "$VAULT_B64"; test -n "$VAULT_PASSWORD"
+          printf '%s' "$VAULT_B64" | base64 --decode > "$stage/vault.enc"
           VAULT_INPUT_PATH="$stage/vault.enc" KEYSTORE_OUTPUT_PATH="$stage/rabbit-release.jks" SECRETS_OUTPUT_DIR="$stage/secrets" GPG_EXPORT_DIR="$stage/gpg" node .source/cyberrabbit-os/scripts/android-keystore-vault.mjs decrypt
           test -s "$stage/rabbit-release.jks"; test -s "$stage/gpg/gpg-private.asc"
           echo "stage=$stage" >> "$GITHUB_OUTPUT"
