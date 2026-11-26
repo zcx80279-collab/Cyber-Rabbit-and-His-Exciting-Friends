@@ -81,9 +81,12 @@ jobs:
 
       - name: Build Windows NSIS installer (.exe)
         working-directory: .source/diary-system
+        shell: bash
         env:
           VERSION: ${{ steps.version.outputs.version }}
-        run: npx electron-builder --win nsis --publish never -c.extraMetadata.version="$env:VERSION"
+        run: |
+          node -e 'const fs=require("fs"); const p=JSON.parse(fs.readFileSync("package.json","utf8")); p.version=process.env.VERSION; fs.writeFileSync("package.json", JSON.stringify(p, null, 2)+"\n");'
+          npx electron-builder --win nsis --publish never
 
       - name: Publish release
         if: inputs.publish
