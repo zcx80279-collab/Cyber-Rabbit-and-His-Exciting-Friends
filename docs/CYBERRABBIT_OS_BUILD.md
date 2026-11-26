@@ -62,6 +62,9 @@ contain source, logs, signing material, OAuth secrets, or user data.
   `B92A0E78A8B020F3DFF6F5D7A9400256FF5B9C7B`. No key or vault was changed.
 - Private provisioning run `45724567209` did not start because the private
   repository Actions budget prevented job execution.
+- Updated provisioning run `45727619828` on private commit `fea1d27` was also
+  prevented from starting by the same Actions budget limit. Keystore-Sync
+  authentication and Environment writes therefore remain unverified.
 - Source Reader App ID `5928892` authentication, private `main` resolution, and
   source checkout succeeded in runs `45727285756` and `45727395688` after its
   existing installation was corrected.
@@ -69,6 +72,9 @@ contain source, logs, signing material, OAuth secrets, or user data.
   see private Draft Release assets. The workflow now keeps that least-privilege
   scope and receives the unchanged encrypted vault through Keystore-Sync
   provisioning instead of expanding Source Reader permissions.
+- Public commit `3ea073e` consumes the provisioned encrypted vault only from
+  the protected release Environment and no longer asks Source Reader to read a
+  Draft Release asset.
 - The managed local runner has repository administration through its existing
   connector token and can download the encrypted vault, but it does not hold
   the Source Reader private key, Keystore-Sync private key, or vault
