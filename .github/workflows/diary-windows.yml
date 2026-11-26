@@ -99,12 +99,10 @@ jobs:
           test -s "$exe"
           gh release view "$TAG" >/dev/null 2>&1 && { echo '::error::Release tag already exists.'; exit 1; } || true
           sha256sum "$exe" > "${exe}.sha256"
+          release_notes=$(printf 'Diary System Windows\n\nversion: %s\nSource commit: %s' "$VERSION" "$SOURCE_SHA")
           gh release create "$TAG" "$exe" "${exe}.sha256" \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --prerelease \
             --title "Diary System Windows v${VERSION}" \
-            --notes "Diary System Windows
-
-version: ${VERSION}
-Source commit: ${SOURCE_SHA}"
+            --notes "$release_notes"

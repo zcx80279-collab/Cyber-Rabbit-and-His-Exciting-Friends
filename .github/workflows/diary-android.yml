@@ -177,15 +177,12 @@ jobs:
           apk=".source/diary-system/android/app/build/outputs/apk/release/DiarySystem-v${VERSION}.apk"
           gh release view "$TAG" >/dev/null 2>&1 && { echo '::error::Release tag already exists.'; exit 1; } || true
           sha256sum "$apk" > "${apk}.sha256"
+          release_notes=$(printf 'Diary System Android\n\nversionName: %s\nversionCode: %s\nSource commit: %s' "$VERSION" "$VERSION_CODE" "$SOURCE_SHA")
           gh release create "$TAG" "$apk" "${apk}.sha256" \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --title "Diary System Android v${VERSION}" \
-            --notes "Diary System Android
-
-versionName: ${VERSION}
-versionCode: ${VERSION_CODE}
-Source commit: ${SOURCE_SHA}"
+            --notes "$release_notes"
 
       - name: Clean temporary signing material
         if: always()
