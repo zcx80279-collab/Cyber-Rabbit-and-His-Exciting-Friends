@@ -1,8 +1,8 @@
-version: 1.0.106
+version: 1.0.107
 files:
-  - url: https://github.com/zcx80279-collab/Cyber-Rabbit-and-His-Exciting-Friends/releases/download/cyberrabbit-os%2Fwindows%2Fv1.0.106/CyberRabbitOS-Setup-1.0.106.exe
-    sha512: LZV3WGsc8xbK/AKU97a/TuCHcRoZpO/Ti3Mjm9JPyTyuES6sOGQj1v9Edy2AQYoF+3PGVHkX1iw7+Cz+mK/JVQ==
-    size: 153469503
-path: https://github.com/zcx80279-collab/Cyber-Rabbit-and-His-Exciting-Friends/releases/download/cyberrabbit-os%2Fwindows%2Fv1.0.106/CyberRabbitOS-Setup-1.0.106.exe
-sha512: LZV3WGsc8xbK/AKU97a/TuCHcRoZpO/Ti3Mjm9JPyTyuES6sOGQj1v9Edy2AQYoF+3PGVHkX1iw7+Cz+mK/JVQ==
-releaseDate: '2026-11-27T08:54:08.569Z'
+  - url: https://github.com/zcx80279-collab/Cyber-Rabbit-and-His-Exciting-Friends/releases/download/cyberrabbit-os%2Fwindows%2Fv1.0.107/CyberRabbitOS-Setup-1.0.107.exe
+    sha512: cuL03FbOx/N6Opotswps5z9e4fCaHdK7A/GE9XAGhZDwG4CYZhgwcJig8UkIluaGS6HnNu30OGjgT7JUeaJYOQ==
+    size: 153475015
+path: https://github.com/zcx80279-collab/Cyber-Rabbit-and-His-Exciting-Friends/releases/download/cyberrabbit-os%2Fwindows%2Fv1.0.107/CyberRabbitOS-Setup-1.0.107.exe
+sha512: cuL03FbOx/N6Opotswps5z9e4fCaHdK7A/GE9XAGhZDwG4CYZhgwcJig8UkIluaGS6HnNu30OGjgT7JUeaJYOQ==
+releaseDate: '2026-11-27T08:59:30.017Z'
