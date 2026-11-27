@@ -15,7 +15,7 @@ jobs:
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/integration/ai-manager'
     runs-on: windows-latest
     timeout-minutes: 60
-    environment: ${{ github.ref == 'refs/heads/main' && 'cyberrabbit-os-release' || '' }}
+    environment: ${{ github.ref == 'refs/heads/main' && 'cyberrabbit-os-release' || 'cyberrabbit-os-test' }}
     steps:
       - name: Check out public orchestration
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
@@ -128,7 +128,7 @@ jobs:
           done
           echo "key_id=$key_id" >> "$GITHUB_OUTPUT"
       - name: Publish immutable release and Windows feed
-        if: inputs.publish
+        if: inputs.publish && github.ref == 'refs/heads/main'
         shell: bash
         env: {GH_TOKEN: '${{ github.token }}', GITHUB_TOKEN: '${{ github.token }}', VERSION: '${{ steps.version.outputs.version }}', TAG: '${{ steps.version.outputs.tag }}', SOURCE_SHA: '${{ steps.source.outputs.sha }}', GPG_KEY_ID: '${{ steps.gpg.outputs.key_id }}'}
         run: |

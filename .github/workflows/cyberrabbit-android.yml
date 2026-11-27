@@ -15,7 +15,7 @@ jobs:
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/integration/ai-manager'
     runs-on: ubuntu-latest
     timeout-minutes: 50
-    environment: ${{ github.ref == 'refs/heads/main' && 'cyberrabbit-os-release' || '' }}
+    environment: ${{ github.ref == 'refs/heads/main' && 'cyberrabbit-os-release' || 'cyberrabbit-os-test' }}
     steps:
       - name: Check out public orchestration
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
@@ -151,7 +151,7 @@ jobs:
           node .source/cyberrabbit-os/scripts/gpg-signing.mjs sign-file "$file.sha256" "$file.sha256.asc"
           echo "key_id=$key_id" >> "$GITHUB_OUTPUT"
       - name: Publish immutable release and Android feed
-        if: inputs.publish
+        if: inputs.publish && github.ref == 'refs/heads/main'
         env: {GH_TOKEN: '${{ github.token }}', GITHUB_TOKEN: '${{ github.token }}', VERSION: '${{ steps.version.outputs.version }}', VERSION_CODE: '${{ steps.version.outputs.versionCode }}', TAG: '${{ steps.version.outputs.tag }}', SOURCE_SHA: '${{ steps.source.outputs.sha }}', SIGNING_SHA256: '${{ steps.signing.outputs.sha256 }}', GPG_KEY_ID: '${{ steps.gpg.outputs.key_id }}'}
         run: |
           set -euo pipefail
