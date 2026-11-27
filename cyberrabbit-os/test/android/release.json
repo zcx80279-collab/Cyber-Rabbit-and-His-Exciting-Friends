@@ -1,0 +1,15 @@
+{
+  "version": "1.0.124",
+  "tag_name": "cyberrabbit-os/test/android/v1.0.124-41",
+  "name": "[TEST] CyberRabbit OS Android v1.0.124",
+  "body": "CyberRabbit OS Android (Test)",
+  "published_at": "2026-11-27T14:52:36Z",
+  "source_sha": "20216c192770112db27c6bee14b59aae96228219",
+  "assets": [
+    {
+      "name": "CyberRabbitOS-Android-1.0.124.apk",
+      "browser_download_url": "https://github.com/zcx80279-collab/Cyber-Rabbit-and-His-Exciting-Friends/releases/download/cyberrabbit-os%2Ftest%2Fandroid%2Fv1.0.124-41/CyberRabbitOS-Android-1.0.124.apk",
+      "sha256": "c8b05a4d27076156fba0aaf1a140e0025d3239994707be4ed91a579098af09bb"
+    }
+  ]
+}
