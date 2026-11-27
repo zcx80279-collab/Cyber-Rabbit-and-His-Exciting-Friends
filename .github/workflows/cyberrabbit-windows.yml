@@ -12,10 +12,10 @@ permissions: {contents: write}
 
 jobs:
   build:
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/integration/ai-manager'
     runs-on: windows-latest
     timeout-minutes: 60
-    environment: cyberrabbit-os-release
+    environment: ${{ github.ref == 'refs/heads/main' && 'cyberrabbit-os-release' || '' }}
     steps:
       - name: Check out public orchestration
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
@@ -36,14 +36,15 @@ jobs:
         env: {GH_TOKEN: '${{ steps.source_reader.outputs.token }}', REQUESTED_REF: '${{ inputs.source_ref }}'}
         run: |
           set -euo pipefail
-          if [ "$REQUESTED_REF" = main ]; then
-            source_sha=$(gh api repos/zcx80279-collab/Magic-Rabbit/commits/main --jq .sha)
+          if [ "$REQUESTED_REF" = main ] || [ "$REQUESTED_REF" = "integration/ai-manager" ]; then
+            source_sha=$(gh api "repos/zcx80279-collab/Magic-Rabbit/commits/${REQUESTED_REF}" --jq .sha)
           elif [[ "$REQUESTED_REF" =~ ^[0-9a-fA-F]{40}$ ]]; then
             source_sha=$(gh api "repos/zcx80279-collab/Magic-Rabbit/commits/$REQUESTED_REF" --jq .sha)
-            status=$(gh api "repos/zcx80279-collab/Magic-Rabbit/compare/${source_sha}...main" --jq .status)
-            case "$status" in ahead|identical) ;; *) echo "::error::The source commit is not contained in private main."; exit 1;; esac
+            target_branch="${GITHUB_REF_NAME:-main}"
+            status=$(gh api "repos/zcx80279-collab/Magic-Rabbit/compare/${source_sha}...${target_branch}" --jq .status)
+            case "$status" in ahead|identical) ;; *) echo "::error::The source commit is not contained in private ${target_branch}."; exit 1;; esac
           else
-            echo "::error::source_ref must be main or a full commit SHA."; exit 1
+            echo "::error::source_ref must be main, integration/ai-manager, or a full commit SHA."; exit 1
           fi
           echo "sha=$source_sha" >> "$GITHUB_OUTPUT"
       - name: Check out private CyberRabbit OS source
