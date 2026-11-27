@@ -3,7 +3,7 @@ name: CyberRabbit OS Windows
 on:
   workflow_dispatch:
     inputs:
-      source_ref: {description: Private source main or a full commit SHA contained in main, required: true, default: main}
+      source_ref: {description: Private source branch (main or integration/ai-manager) or full commit SHA, required: true, default: integration/ai-manager}
       version: {description: X.Y.Z or auto, required: true, default: auto}
       publish: {description: Publish release and update feed, required: true, type: boolean, default: false}
 
@@ -62,7 +62,7 @@ jobs:
       - name: Resolve monotonic version
         id: version
         shell: bash
-        env: {GITHUB_TOKEN: '${{ github.token }}'}
+        env: {GITHUB_TOKEN: '${{ github.token }}', TEST_CHANNEL: '${{ github.ref != ''refs/heads/main'' && ''true'' || ''false'' }}'}
         run: node scripts/resolve-version.mjs windows '${{ inputs.version }}'
       - name: Scan private source before secrets are restored
         shell: bash
@@ -144,7 +144,7 @@ jobs:
           node scripts/publish-feed.mjs cyberrabbit-os/windows/latest.yml "$root/public-latest.yml" "CyberRabbit OS Windows ${VERSION} feed"
           jq -n --arg version "$VERSION" --arg tag "$TAG" --arg url "${base}/${exe}" --arg name "$exe" --arg source "$SOURCE_SHA" --arg published "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '{version:$version,tag_name:$tag,name:("CyberRabbit OS Windows v"+$version),body:"CyberRabbit OS Windows",published_at:$published,source_sha:$source,assets:[{name:$name,browser_download_url:$url}]}' >"$root/windows-feed.json"
           node scripts/publish-feed.mjs cyberrabbit-os/windows/release.json "$root/windows-feed.json" "CyberRabbit OS Windows ${VERSION} release feed"
-      - name: Publish test pre-release (non-main branch, no feed update)
+      - name: Publish test pre-release and test feed (non-main branch)
         if: github.ref != 'refs/heads/main'
         shell: bash
         env: {GH_TOKEN: '${{ github.token }}', GITHUB_TOKEN: '${{ github.token }}', VERSION: '${{ steps.version.outputs.version }}', SOURCE_SHA: '${{ steps.source.outputs.sha }}', GPG_KEY_ID: '${{ steps.gpg.outputs.key_id }}', RUN_NUMBER: '${{ github.run_number }}'}
@@ -156,6 +156,11 @@ jobs:
 
           Source commit: ${SOURCE_SHA}
           GPG signing key: ${GPG_KEY_ID}"
+          encoded_tag=$(node -p 'encodeURIComponent(process.argv[1])' "$test_tag"); base="https://github.com/${GITHUB_REPOSITORY}/releases/download/${encoded_tag}"
+          sed -e "s#url: ${exe}#url: ${base}/${exe}#" -e "s#path: ${exe}#path: ${base}/${exe}#" "$root/latest.yml" >"$root/test-public-latest.yml"
+          node scripts/publish-feed.mjs cyberrabbit-os/test/windows/latest.yml "$root/test-public-latest.yml" "CyberRabbit OS Test Windows ${VERSION} feed"
+          jq -n --arg version "$VERSION" --arg tag "$test_tag" --arg url "${base}/${exe}" --arg name "$exe" --arg source "$SOURCE_SHA" --arg published "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '{version:$version,tag_name:$tag,name:("[TEST] CyberRabbit OS Windows v"+$version),body:"CyberRabbit OS Windows (Test)",published_at:$published,source_sha:$source,assets:[{name:$name,browser_download_url:$url}]}' >"$root/test-windows-feed.json"
+          node scripts/publish-feed.mjs cyberrabbit-os/test/windows/release.json "$root/test-windows-feed.json" "CyberRabbit OS Test Windows ${VERSION} release feed"
       - name: Clean temporary signing material
         if: always()
         shell: bash

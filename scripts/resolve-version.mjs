@@ -25,6 +25,9 @@ function compare(a, b) {
   return 0;
 }
 
+const isTestChannel = process.env.TEST_CHANNEL === 'true';
+const testPrefix = `cyberrabbit-os/test/${platform}/v`;
+
 async function publishedVersions() {
   const repository = process.env.GITHUB_REPOSITORY;
   if (!repository || !process.env.GITHUB_TOKEN) return [];
@@ -37,10 +40,20 @@ async function publishedVersions() {
   });
   if (!response.ok) throw new Error(`Unable to inspect releases (HTTP ${response.status})`);
   const releases = await response.json();
-  return releases
-    .filter((release) => !release.draft && String(release.tag_name).startsWith(prefix))
-    .map((release) => String(release.tag_name).slice(prefix.length))
-    .filter((version) => semver.test(version));
+  const versions = [];
+  for (const release of releases) {
+    if (release.draft) continue;
+    const tag = String(release.tag_name || '');
+    if (tag.startsWith(prefix)) {
+      const v = tag.slice(prefix.length);
+      if (semver.test(v)) versions.push(v);
+    } else if (isTestChannel && tag.startsWith(testPrefix)) {
+      const rest = tag.slice(testPrefix.length);
+      const v = rest.split('-')[0];
+      if (semver.test(v)) versions.push(v);
+    }
+  }
+  return versions;
 }
 
 const published = await publishedVersions();
