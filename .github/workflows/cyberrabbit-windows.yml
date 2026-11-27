@@ -144,6 +144,18 @@ jobs:
           node scripts/publish-feed.mjs cyberrabbit-os/windows/latest.yml "$root/public-latest.yml" "CyberRabbit OS Windows ${VERSION} feed"
           jq -n --arg version "$VERSION" --arg tag "$TAG" --arg url "${base}/${exe}" --arg name "$exe" --arg source "$SOURCE_SHA" --arg published "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '{version:$version,tag_name:$tag,name:("CyberRabbit OS Windows v"+$version),body:"CyberRabbit OS Windows",published_at:$published,source_sha:$source,assets:[{name:$name,browser_download_url:$url}]}' >"$root/windows-feed.json"
           node scripts/publish-feed.mjs cyberrabbit-os/windows/release.json "$root/windows-feed.json" "CyberRabbit OS Windows ${VERSION} release feed"
+      - name: Publish test pre-release (non-main branch, no feed update)
+        if: github.ref != 'refs/heads/main'
+        shell: bash
+        env: {GH_TOKEN: '${{ github.token }}', GITHUB_TOKEN: '${{ github.token }}', VERSION: '${{ steps.version.outputs.version }}', SOURCE_SHA: '${{ steps.source.outputs.sha }}', GPG_KEY_ID: '${{ steps.gpg.outputs.key_id }}', RUN_NUMBER: '${{ github.run_number }}'}
+        run: |
+          set -euo pipefail
+          root=.source/cyberrabbit-os/release; exe="CyberRabbitOS-Setup-${VERSION}.exe"; zip="CyberRabbitOS-${VERSION}-x64.zip"
+          test_tag="cyberrabbit-os/test/windows/v${VERSION}-${RUN_NUMBER}"
+          gh release create "$test_tag" "$root/$exe"* "$root/$zip"* "$root/latest.yml"* "$root/cyberrabbit-release-gpg-public.asc" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease --title "[TEST] CyberRabbit OS Windows v${VERSION} (#${RUN_NUMBER})" --notes "Cyber Rabbit OS Windows (Test Build - ${GITHUB_REF_NAME})
+
+          Source commit: ${SOURCE_SHA}
+          GPG signing key: ${GPG_KEY_ID}"
       - name: Clean temporary signing material
         if: always()
         shell: bash

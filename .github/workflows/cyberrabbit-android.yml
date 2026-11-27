@@ -166,6 +166,18 @@ jobs:
           sha256=$(awk '{print $1}' "release/$apk.sha256"); encoded_tag=$(node -p 'encodeURIComponent(process.argv[1])' "$TAG"); download="https://github.com/${GITHUB_REPOSITORY}/releases/download/${encoded_tag}/${apk}"
           jq -n --arg version "$VERSION" --arg tag "$TAG" --arg url "$download" --arg name "$apk" --arg sha "$sha256" --arg source "$SOURCE_SHA" --arg published "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '{version:$version,tag_name:$tag,name:("CyberRabbit OS Android v"+$version),body:"CyberRabbit OS Android",published_at:$published,source_sha:$source,assets:[{name:$name,browser_download_url:$url,sha256:$sha}]}' >release/android-feed.json
           node scripts/publish-feed.mjs cyberrabbit-os/android/release.json release/android-feed.json "CyberRabbit OS Android ${VERSION} feed"
+      - name: Publish test pre-release (non-main branch, no feed update)
+        if: github.ref != 'refs/heads/main'
+        env: {GH_TOKEN: '${{ github.token }}', GITHUB_TOKEN: '${{ github.token }}', VERSION: '${{ steps.version.outputs.version }}', VERSION_CODE: '${{ steps.version.outputs.versionCode }}', SOURCE_SHA: '${{ steps.source.outputs.sha }}', SIGNING_SHA256: '${{ steps.signing.outputs.sha256 }}', GPG_KEY_ID: '${{ steps.gpg.outputs.key_id }}', RUN_NUMBER: '${{ github.run_number }}'}
+        run: |
+          set -euo pipefail
+          test_tag="cyberrabbit-os/test/android/v${VERSION}-${RUN_NUMBER}"
+          gh release create "$test_tag" release/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease --title "[TEST] CyberRabbit OS Android v${VERSION} (#${RUN_NUMBER})" --notes "Cyber Rabbit OS Android (Test Build - ${GITHUB_REF_NAME})
+
+          Source commit: ${SOURCE_SHA}
+          Version code: ${VERSION_CODE}
+          Android signing SHA-256: ${SIGNING_SHA256}
+          GPG signing key: ${GPG_KEY_ID}"
       - name: Clean temporary signing material
         if: always()
         env: {STAGE: '${{ steps.vault.outputs.stage }}'}
