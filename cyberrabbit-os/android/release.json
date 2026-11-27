@@ -1,15 +1,15 @@
 {
-  "version": "1.0.116",
-  "tag_name": "cyberrabbit-os/android/v1.0.116",
-  "name": "CyberRabbit OS Android v1.0.116",
+  "version": "1.0.117",
+  "tag_name": "cyberrabbit-os/android/v1.0.117",
+  "name": "CyberRabbit OS Android v1.0.117",
   "body": "CyberRabbit OS Android",
-  "published_at": "2026-11-26T15:14:06Z",
-  "source_sha": "bec10fd1bdda7227b45360673a9084f8dde86ea8",
+  "published_at": "2026-11-27T03:27:52Z",
+  "source_sha": "2208b12f05187b6dee241d999c16251d9d141464",
   "assets": [
     {
-      "name": "CyberRabbitOS-Android-1.0.116.apk",
-      "browser_download_url": "https://github.com/zcx80279-collab/Cyber-Rabbit-and-His-Exciting-Friends/releases/download/cyberrabbit-os%2Fandroid%2Fv1.0.116/CyberRabbitOS-Android-1.0.116.apk",
-      "sha256": "6a1b412f0e024a7bd3ee29114468f675830c7ec97ba2c60f6caa121a73bceeb5"
+      "name": "CyberRabbitOS-Android-1.0.117.apk",
+      "browser_download_url": "https://github.com/zcx80279-collab/Cyber-Rabbit-and-His-Exciting-Friends/releases/download/cyberrabbit-os%2Fandroid%2Fv1.0.117/CyberRabbitOS-Android-1.0.117.apk",
+      "sha256": "f3e3f35f4e0e2faec503b4e7b0ab7456868712d7b05c24b9720f05709159888e"
     }
   ]
 }
