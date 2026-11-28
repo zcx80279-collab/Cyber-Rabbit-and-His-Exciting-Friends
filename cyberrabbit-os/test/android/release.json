@@ -1,15 +1,15 @@
 {
-  "version": "1.0.126",
-  "tag_name": "cyberrabbit-os/test/android/v1.0.126-48",
-  "name": "[TEST] CyberRabbit OS Android v1.0.126",
+  "version": "1.0.127",
+  "tag_name": "cyberrabbit-os/test/android/v1.0.127-49",
+  "name": "[TEST] CyberRabbit OS Android v1.0.127",
   "body": "CyberRabbit OS Android (Test)",
-  "published_at": "2026-11-28T02:08:24Z",
-  "source_sha": "e61832a09d668997c523001b7d3164250f2b916b",
+  "published_at": "2026-11-28T03:02:50Z",
+  "source_sha": "4ad66826bdbf061d3eeceb50256287ef56f1594a",
   "assets": [
     {
-      "name": "CyberRabbitOS-Android-1.0.126.apk",
-      "browser_download_url": "https://github.com/zcx80279-collab/Cyber-Rabbit-and-His-Exciting-Friends/releases/download/cyberrabbit-os%2Ftest%2Fandroid%2Fv1.0.126-48/CyberRabbitOS-Android-1.0.126.apk",
-      "sha256": "c0cc36aa5e9de402605bb4289dc4836e3e79771dfc037aedc1f09264a092face"
+      "name": "CyberRabbitOS-Android-1.0.127.apk",
+      "browser_download_url": "https://github.com/zcx80279-collab/Cyber-Rabbit-and-His-Exciting-Friends/releases/download/cyberrabbit-os%2Ftest%2Fandroid%2Fv1.0.127-49/CyberRabbitOS-Android-1.0.127.apk",
+      "sha256": "0e1a4d2a63e127db954c7efc97489b5584e023be0f9cc707625b88a7b56d8275"
     }
   ]
 }
