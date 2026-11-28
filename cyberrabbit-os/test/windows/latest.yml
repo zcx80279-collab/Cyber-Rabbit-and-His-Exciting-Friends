@@ -1,8 +1,8 @@
-version: 1.0.121
+version: 1.0.122
 files:
-  - url: https://github.com/zcx80279-collab/Cyber-Rabbit-and-His-Exciting-Friends/releases/download/cyberrabbit-os%2Ftest%2Fwindows%2Fv1.0.121-42/CyberRabbitOS-Setup-1.0.121.exe
-    sha512: P6HEZuERNw8DWh+NdlA9UajMhiNIeumKUIA7e+YHNdwM+17rQ231CfgkxWNOuLsRg8O5+A6S7zQn2a8iU/sOVA==
-    size: 162912307
-path: https://github.com/zcx80279-collab/Cyber-Rabbit-and-His-Exciting-Friends/releases/download/cyberrabbit-os%2Ftest%2Fwindows%2Fv1.0.121-42/CyberRabbitOS-Setup-1.0.121.exe
-sha512: P6HEZuERNw8DWh+NdlA9UajMhiNIeumKUIA7e+YHNdwM+17rQ231CfgkxWNOuLsRg8O5+A6S7zQn2a8iU/sOVA==
-releaseDate: '2026-11-28T12:16:53.765Z'
+  - url: https://github.com/zcx80279-collab/Cyber-Rabbit-and-His-Exciting-Friends/releases/download/cyberrabbit-os%2Ftest%2Fwindows%2Fv1.0.122-43/CyberRabbitOS-Setup-1.0.122.exe
+    sha512: WX5M5JNFGryG8ffaljIARwRF5V0ygI1Qi2sOW/bsOV1yX15IZhscVTyDhG/nM/n6dp+fJjFrwluDofIZsAY7Hg==
+    size: 162924365
+path: https://github.com/zcx80279-collab/Cyber-Rabbit-and-His-Exciting-Friends/releases/download/cyberrabbit-os%2Ftest%2Fwindows%2Fv1.0.122-43/CyberRabbitOS-Setup-1.0.122.exe
+sha512: WX5M5JNFGryG8ffaljIARwRF5V0ygI1Qi2sOW/bsOV1yX15IZhscVTyDhG/nM/n6dp+fJjFrwluDofIZsAY7Hg==
+releaseDate: '2026-11-28T13:21:19.294Z'
