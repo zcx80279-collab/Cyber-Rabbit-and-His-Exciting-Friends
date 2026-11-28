@@ -1,14 +1,14 @@
 {
-  "version": "1.0.113",
-  "tag_name": "cyberrabbit-os/test/windows/v1.0.113-30",
-  "name": "[TEST] CyberRabbit OS Windows v1.0.113",
+  "version": "1.0.114",
+  "tag_name": "cyberrabbit-os/test/windows/v1.0.114-31",
+  "name": "[TEST] CyberRabbit OS Windows v1.0.114",
   "body": "CyberRabbit OS Windows (Test)",
-  "published_at": "2026-11-28T00:09:32Z",
-  "source_sha": "591f369c0b57344241b2091a7e9e89a09b23cf10",
+  "published_at": "2026-11-28T00:20:56Z",
+  "source_sha": "35214b00d868f77543e73f2aade17cb94524c89b",
   "assets": [
     {
-      "name": "CyberRabbitOS-Setup-1.0.113.exe",
-      "browser_download_url": "https://github.com/zcx80279-collab/Cyber-Rabbit-and-His-Exciting-Friends/releases/download/cyberrabbit-os%2Ftest%2Fwindows%2Fv1.0.113-30/CyberRabbitOS-Setup-1.0.113.exe"
+      "name": "CyberRabbitOS-Setup-1.0.114.exe",
+      "browser_download_url": "https://github.com/zcx80279-collab/Cyber-Rabbit-and-His-Exciting-Friends/releases/download/cyberrabbit-os%2Ftest%2Fwindows%2Fv1.0.114-31/CyberRabbitOS-Setup-1.0.114.exe"
     }
   ]
 }
